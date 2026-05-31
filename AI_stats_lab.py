@@ -33,7 +33,16 @@ def generate_clean_data(
     - coef = True
     - random_state = 42
     """
-    pass
+    X, y, true_coef = datasets.make_regression(
+        n_samples=n_samples,
+        n_features=1,
+        n_informative=1,
+        noise=noise,
+        coef=True,
+        random_state=random_state
+    )
+
+    return X, y, true_coef
 
 
 def add_outliers(
@@ -56,7 +65,20 @@ def add_outliers(
     Do not modify the original X and y directly.
     Make copies first.
     """
-    pass
+    X_out = X.copy()
+    y_out = y.copy()
+
+    rng = np.random.RandomState(random_state)
+
+    X_out[:n_outliers] = (
+        10 + 0.75 * rng.normal(size=(n_outliers, X.shape[1]))
+    )
+
+    y_out[:n_outliers] = (
+        -15 + 20 * rng.normal(size=n_outliers)
+    )
+
+    return X_out, y_out
 
 
 def plot_dataset_with_outliers(
@@ -77,7 +99,29 @@ def plot_dataset_with_outliers(
     - include y-label
     - include legend
     """
-    pass
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.scatter(
+        X[n_outliers:],
+        y[n_outliers:],
+        label="Normal observations",
+        alpha=0.7
+    )
+
+    ax.scatter(
+        X[:n_outliers],
+        y[:n_outliers],
+        label="Artificial outliers",
+        marker="x",
+        s=60
+    )
+
+    ax.set_title("Dataset with Artificial Outliers")
+    ax.set_xlabel("X")
+    ax.set_ylabel("y")
+    ax.legend()
+
+    return fig
 
 
 # -------------------------------------------------
@@ -91,7 +135,10 @@ def fit_linear_regression(X, y):
     Return:
         fitted coefficient as a float
     """
-    pass
+    model = LinearRegression()
+    model.fit(X, y)
+
+    return float(model.coef_[0])
 
 
 def fit_huber_regression(X, y):
@@ -101,7 +148,10 @@ def fit_huber_regression(X, y):
     Return:
         fitted coefficient as a float
     """
-    pass
+    model = HuberRegressor()
+    model.fit(X, y)
+
+    return float(model.coef_[0])
 
 
 def fit_ransac_regression(X, y, random_state=42):
@@ -114,7 +164,13 @@ def fit_ransac_regression(X, y, random_state=42):
     Hint:
     RANSAC stores the final linear model in estimator_.
     """
-    pass
+    model = RANSACRegressor(
+        random_state=random_state
+    )
+
+    model.fit(X, y)
+
+    return float(model.estimator_.coef_[0])
 
 
 def fit_theilsen_regression(X, y, random_state=42):
@@ -124,7 +180,13 @@ def fit_theilsen_regression(X, y, random_state=42):
     Return:
         fitted coefficient as a float
     """
-    pass
+    model = TheilSenRegressor(
+        random_state=random_state
+    )
+
+    model.fit(X, y)
+
+    return float(model.coef_[0])
 
 
 def coefficient_errors(coef_dict, true_coef):
@@ -146,7 +208,10 @@ def coefficient_errors(coef_dict, true_coef):
             ...
         }
     """
-    pass
+    return {
+        model_name: abs(coef - true_coef)
+        for model_name, coef in coef_dict.items()
+    }
 
 
 def best_robust_model(errors):
@@ -160,7 +225,13 @@ def best_robust_model(errors):
 
     Do not include ordinary linear_regression in this comparison.
     """
-    pass
+    robust_errors = {
+        "huber_regression": errors["huber_regression"],
+        "ransac_regression": errors["ransac_regression"],
+        "theilsen_regression": errors["theilsen_regression"]
+    }
+
+    return min(robust_errors, key=robust_errors.get)
 
 
 def ransac_outlier_summary(
@@ -181,7 +252,24 @@ def ransac_outlier_summary(
         number of artificial outliers among the first n_outliers
         that RANSAC classified as outliers
     """
-    pass
+    model = RANSACRegressor(
+        random_state=random_state
+    )
+
+    model.fit(X, y)
+
+    inlier_mask = model.inlier_mask_
+    outlier_mask = ~inlier_mask
+
+    total_outliers_detected = int(np.sum(outlier_mask))
+    added_outliers_detected = int(
+        np.sum(outlier_mask[:n_outliers])
+    )
+
+    return (
+        total_outliers_detected,
+        added_outliers_detected
+    )
 
 
 # -------------------------------------------------
@@ -211,7 +299,56 @@ def plot_regression_fits(
     - y-label
     - legend
     """
-    pass
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.scatter(
+        X,
+        y,
+        alpha=0.6,
+        label="Data"
+    )
+
+    line_X = np.linspace(
+        X.min(),
+        X.max(),
+        500
+    ).reshape(-1, 1)
+
+    models = {
+        "Linear Regression":
+            LinearRegression(),
+
+        "Huber Regression":
+            HuberRegressor(),
+
+        "RANSAC Regression":
+            RANSACRegressor(
+                random_state=random_state
+            ),
+
+        "Theil-Sen Regression":
+            TheilSenRegressor(
+                random_state=random_state
+            )
+    }
+
+    for name, model in models.items():
+        model.fit(X, y)
+
+        predictions = model.predict(line_X)
+
+        ax.plot(
+            line_X,
+            predictions,
+            label=name
+        )
+
+    ax.set_title("Regression Model Comparison")
+    ax.set_xlabel("X")
+    ax.set_ylabel("y")
+    ax.legend()
+
+    return fig
 
 
 def plot_ransac_inliers_outliers(
@@ -232,4 +369,35 @@ def plot_ransac_inliers_outliers(
     - y-label
     - legend
     """
-    pass
+    model = RANSACRegressor(
+        random_state=random_state
+    )
+
+    model.fit(X, y)
+
+    inlier_mask = model.inlier_mask_
+    outlier_mask = ~inlier_mask
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.scatter(
+        X[inlier_mask],
+        y[inlier_mask],
+        label="Inliers",
+        alpha=0.7
+    )
+
+    ax.scatter(
+        X[outlier_mask],
+        y[outlier_mask],
+        label="Outliers",
+        marker="x",
+        s=60
+    )
+
+    ax.set_title("RANSAC Inlier vs Outlier Detection")
+    ax.set_xlabel("X")
+    ax.set_ylabel("y")
+    ax.legend()
+
+    return fig
